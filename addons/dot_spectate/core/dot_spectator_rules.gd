@@ -1,6 +1,6 @@
 @tool
-class_name DotSpectatorRules
-extends DotConfig
+class_name GSSpectatorRules
+extends GSConfig
 
 ## Every policy about watching, in one layered configuration.
 ##
@@ -104,10 +104,10 @@ func cli_prefix() -> String:
 	return "--spectate-"
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if delay_ticks > 0 and history_ticks <= delay_ticks:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			(
 				"A delay of %d ticks needs more than %d ticks of history, or the "
 				+ "camera asks for a tick that has already been thrown away and "
@@ -115,7 +115,7 @@ func validate() -> DotResult:
 			) % [delay_ticks, history_ticks]
 		)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Whether a viewer may actually roam: asked for, and not contradicted by a restricted
@@ -178,7 +178,7 @@ func bind_cvars(add: Callable, flags: int = 0) -> Array:
 	return made
 
 
-## Follows a server's values through [param source] (GameSpice Server's [code]DotClientLink[/code],
+## Follows a server's values through [param source] (GameSpice Server's [code]GSClientLink[/code],
 ## or anything with [code]replicated_cvar(name, fallback)[/code] and a
 ## [code]replicated_cvar_changed(name, value)[/code] signal). False when it cannot.
 func follow_cvars(source: Object) -> bool:

@@ -1,4 +1,4 @@
-class_name DotSpectatorView
+class_name GSSpectatorView
 extends RefCounted
 
 ## One viewer, and what they are looking at.
@@ -102,4 +102,4 @@ func apply_wire(w: Dictionary) -> void:
 
 
 func _to_string() -> String:
-	return "DotSpectatorView(%s %s %s)" % [key, Mode.keys()[mode], target]
+	return "GSSpectatorView(%s %s %s)" % [key, Mode.keys()[mode], target]

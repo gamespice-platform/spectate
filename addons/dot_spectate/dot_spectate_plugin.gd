@@ -10,7 +10,7 @@ const _ICON := "res://addons/dot_spectate/icon_placeholder.svg"
 
 const _TYPES := [
 	[
-		"DotSpectatorManager",
+		"GSSpectatorManager",
 		"Node",
 		"res://addons/dot_spectate/runtime/dot_spectator_manager.gd",
 	],

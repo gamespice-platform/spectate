@@ -23,8 +23,8 @@ func _world(names: Dictionary) -> void:
 		_poses[key] = Transform3D(Basis.IDENTITY, Vector3.ZERO)
 
 
-func _manager() -> DotSpectatorManager:
-	var m := DotSpectatorManager.new()
+func _manager() -> GSSpectatorManager:
+	var m := GSSpectatorManager.new()
 	# The policy tests assume a competitive server; the default is now unrestricted.
 	m.rules.force_camera = 1
 	m.participants_fn = func() -> PackedStringArray:
@@ -47,7 +47,7 @@ func _manager() -> DotSpectatorManager:
 func _test_rules() -> void:
 	_section("rules")
 
-	var rules := DotSpectatorRules.new()
+	var rules := GSSpectatorRules.new()
 	_check(rules.validate().ok, "the defaults validate")
 	_check(rules.force_camera == 0, "and leave the camera unrestricted, so free roam can work")
 	_check(rules.allow_roaming and rules.roaming_permitted(), "with roaming on by default")
@@ -66,7 +66,7 @@ func _test_rules() -> void:
 
 	_section("free roam")
 
-	var r2 := DotSpectatorRules.new()
+	var r2 := GSSpectatorRules.new()
 	_check(r2.set_cvar("mp_freeroam", "0") and not r2.allow_roaming, "mp_freeroam 0 applies")
 	_check(not r2.set_cvar("mp_freeroam", "maybe"), "and a bad value is refused")
 	_check(r2.set_cvar("mp_forcecamera", "1") and r2.force_camera == 1, "mp_forcecamera applies")
@@ -76,7 +76,7 @@ func _test_rules() -> void:
 		"mp_freeroam_speed is clamped"
 	)
 
-	var free := DotSpectatorFreeCam.new()
+	var free := GSSpectatorFreeCam.new()
 	free.seed_from(Transform3D(Basis.from_euler(Vector3(0.2, 1.0, 0.0), EULER_ORDER_YXZ), Vector3(5, 6, 7)))
 	_check(free.position == Vector3(5, 6, 7), "a roam starts where the camera was")
 	_check(is_equal_approx(free.yaw, 1.0) and is_equal_approx(free.pitch, 0.2), "looking the same way")
@@ -89,7 +89,7 @@ func _test_rules() -> void:
 	_check(free.position.is_equal_approx(before + Vector3(0, 0, -12.0)), "forward is -Z at the default speed")
 	var _fast := free.step(Vector3(0, 0, 1), true, false, 1.0)
 	_check(is_equal_approx(before.z - free.position.z, 12.0 + 36.0), "and the fast key triples it")
-	var tuned := DotSpectatorRules.new()
+	var tuned := GSSpectatorRules.new()
 	tuned.roam_speed = 20.0
 	free.rules = tuned
 	free.position = Vector3.ZERO
@@ -110,24 +110,24 @@ func _test_rules() -> void:
 func _test_view() -> void:
 	_section("a view")
 
-	var v := DotSpectatorView.new("ada")
+	var v := GSSpectatorView.new("ada")
 	_check(not v.is_watching(), "a fresh view is not watching")
 	_check(not v.is_timed(), "and is not timed")
 
-	v.mode = DotSpectatorView.Mode.CHASE
+	v.mode = GSSpectatorView.Mode.CHASE
 	_check(v.is_watching(), "a mode makes it one")
 	_check(v.follows_target(), "and a chase follows a target")
 
-	v.mode = DotSpectatorView.Mode.ROAMING
+	v.mode = GSSpectatorView.Mode.ROAMING
 	_check(
 		not v.follows_target(),
 		"and roaming does not, which is what decides whether losing a target matters"
 	)
 
-	v.mode = DotSpectatorView.Mode.FIRST_PERSON
+	v.mode = GSSpectatorView.Mode.FIRST_PERSON
 	v.target = "bob"
 	v.until_tick = 500
-	var round_trip := DotSpectatorView.new("ada")
+	var round_trip := GSSpectatorView.new("ada")
 	round_trip.apply_wire(v.to_wire())
 	_check(
 		round_trip.mode == v.mode and round_trip.target == "bob",
@@ -138,7 +138,7 @@ func _test_view() -> void:
 func _test_history() -> void:
 	_section("history")
 
-	var h := DotSpectatorHistory.new(4)
+	var h := GSSpectatorHistory.new(4)
 	for t in range(10):
 		h.record(t, {"ada": Transform3D(Basis.IDENTITY, Vector3(float(t), 0, 0))})
 
@@ -191,7 +191,7 @@ func _test_policy() -> void:
 		not refused.ok,
 		"and not the other side, on a server with force_camera 1"
 	)
-	_check(refused.code() == DotError.CODE_FORBIDDEN, "with a forbidden code")
+	_check(refused.code() == GSError.CODE_FORBIDDEN, "with a forbidden code")
 
 	m.rules.force_camera = 0
 	_check(m.may_watch("ada", "cid").ok, "unrestricted lets them")
@@ -236,9 +236,9 @@ func _test_policy() -> void:
 	m.target_filter = Callable()
 
 	# The mode the policy actually gives, against the one that was asked for.
-	var _w := m.watch("ada", "bob", DotSpectatorView.Mode.CHASE)
+	var _w := m.watch("ada", "bob", GSSpectatorView.Mode.CHASE)
 	_check(
-		m.view("ada").mode == DotSpectatorView.Mode.FIRST_PERSON,
+		m.view("ada").mode == GSSpectatorView.Mode.FIRST_PERSON,
 		"'own side only' also forces first person, because a chase camera behind a "
 		+ "team-mate sees round corners they cannot"
 	)
@@ -301,20 +301,20 @@ func _test_death_chain() -> void:
 	_alive["ada"] = false
 	m.on_death("ada", Vector3(5, 0, 5), "cid", 0)
 	_check(
-		m.view("ada").mode == DotSpectatorView.Mode.DEATH_CAM,
+		m.view("ada").mode == GSSpectatorView.Mode.DEATH_CAM,
 		"dying starts the death camera"
 	)
 
 	for t in range(1, RATE):
 		m.advance(t)
 	_check(
-		m.view("ada").mode == DotSpectatorView.Mode.DEATH_CAM,
+		m.view("ada").mode == GSSpectatorView.Mode.DEATH_CAM,
 		"which holds for as long as it says"
 	)
 
 	m.advance(RATE)
 	_check(
-		m.view("ada").mode == DotSpectatorView.Mode.FREEZE_CAM,
+		m.view("ada").mode == GSSpectatorView.Mode.FREEZE_CAM,
 		"then hands over to the freeze camera"
 	)
 	_check(m.view("ada").target == "cid", "on whoever did it")
@@ -331,7 +331,7 @@ func _test_death_chain() -> void:
 	for t in range(RATE + 10, 3 * RATE):
 		m.advance(t)
 	_check(
-		m.view("ada").mode == DotSpectatorView.Mode.FIRST_PERSON,
+		m.view("ada").mode == GSSpectatorView.Mode.FIRST_PERSON,
 		"and then hands over to a real target — the hand-over every game that writes "
 		+ "this itself gets wrong, leaving the player looking at their killer until "
 		+ "they respawn"
@@ -348,7 +348,7 @@ func _test_death_chain() -> void:
 	_alive["bob"] = false
 	m.on_death("bob", Vector3.ZERO, "", 100)
 	_check(
-		m.view("bob").mode == DotSpectatorView.Mode.FIRST_PERSON,
+		m.view("bob").mode == GSSpectatorView.Mode.FIRST_PERSON,
 		"and with both cameras turned off it goes straight to somebody"
 	)
 
@@ -356,7 +356,7 @@ func _test_death_chain() -> void:
 	_world({"cid": 2})
 	m.on_death("cid", Vector3.ZERO, "", 200)
 	_check(
-		m.view("cid").mode == DotSpectatorView.Mode.FIXED,
+		m.view("cid").mode == GSSpectatorView.Mode.FIXED,
 		"with nobody at all it falls back to a fixed camera rather than a first-person "
 		+ "view of nobody"
 	)

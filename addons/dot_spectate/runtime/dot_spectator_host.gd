@@ -1,7 +1,7 @@
-class_name DotSpectatorHost
+class_name GSSpectatorHost
 extends Node
 
-## The wrapper every game wrote around [DotSpectatorManager]: build it, bind the game questions, forward the viewer calls.
+## The wrapper every game wrote around [GSSpectatorManager]: build it, bind the game questions, forward the viewer calls.
 ## Subclass and override [code]_participants[/code], [code]_team_of[/code], [code]_is_alive[/code], [code]_pose_of[/code] (see [method eye_pose]) and [code]_current_tick[/code]; add_child, [code]setup()[/code], then [code]advance_live()[/code] once a tick.
 ## Keys are [String] like the manager's; a game keyed by [int] or [StringName] converts in its subclass, and one that needs more overrides the method and calls [code]super[/code].
 
@@ -31,14 +31,14 @@ signal view_changed(key: String)
 ## The local viewer. Non-empty: a left click or a screen tap that nothing else handled steps to the next target. Empty: the game binds input itself.
 @export var tap_key: String = ""
 ## The game's own rules object, so cvars it bound are the rules in use. Null: a new one.
-@export var rules: DotSpectatorRules = null
+@export var rules: GSSpectatorRules = null
 
 ## [code](key: String) -> String[/code]: a name for the HUD line. Default: the key.
 var name_fn: Callable = Callable()
 ## [code](key: String) -> int[/code]: which fixed camera a viewer in FIXED mode gets.
 var fixed_index_fn: Callable = Callable()
 
-var manager: DotSpectatorManager = null
+var manager: GSSpectatorManager = null
 
 var _stepping: bool = false
 var _preferring: bool = false
@@ -46,11 +46,11 @@ var _seen_dead: Dictionary = {}
 
 
 ## Builds the manager. Call once, after the game's roster exists.
-func setup() -> DotResult:
-	manager = DotSpectatorManager.new()
+func setup() -> GSResult:
+	manager = GSSpectatorManager.new()
 	manager.name = "SpectatorManager"
 	manager.authoritative = authoritative
-	manager.rules = tune_rules(rules if rules != null else DotSpectatorRules.new())
+	manager.rules = tune_rules(rules if rules != null else GSSpectatorRules.new())
 	manager.participants_fn = _participants
 	manager.team_fn = _team_of
 	manager.alive_fn = _is_alive
@@ -65,12 +65,12 @@ func setup() -> DotResult:
 
 	manager.view_changed.connect(_on_view_changed)
 	manager.retargeted.connect(_on_retargeted)
-	DotLog.debug(_channel(), "spectating is set up", {
+	GSLog.debug(_channel(), "spectating is set up", {
 		"authoritative": authoritative,
 		"force_camera": manager.rules.force_camera,
 		"roaming": manager.rules.roaming_permitted(),
 	})
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Left click or screen tap to the next target. Arrives unhandled, so a touch button that took the press never gets here.
@@ -116,17 +116,17 @@ func _current_tick() -> int:
 
 ## The game's rule defaults beyond the exports, on [param r] (which is returned). The
 ## operator's [code]force_camera[/code] and [code]allow_roaming[/code] are not set here.
-func _tune_rules(r: DotSpectatorRules) -> DotSpectatorRules:
+func _tune_rules(r: GSSpectatorRules) -> GSSpectatorRules:
 	return r
 
 
-## The DotLog channel. Override to log under the game's own.
+## The GSLog channel. Override to log under the game's own.
 func _channel() -> String:
 	return "spectate.host"
 
 
 ## Applies the exports and then the game's hook to [param r].
-func tune_rules(r: DotSpectatorRules) -> DotSpectatorRules:
+func tune_rules(r: GSSpectatorRules) -> GSSpectatorRules:
 	var rate := float(maxi(tick_rate, 1))
 	r.death_cam_ticks = int(death_cam_seconds * rate)
 	r.freeze_cam_ticks = int(freeze_cam_seconds * rate)
@@ -194,11 +194,11 @@ func left(key: String) -> void:
 		_seen_dead.erase(key)
 
 
-func _unset() -> DotResult:
-	return DotResult.fail(DotError.CODE_STATE, "Spectating is not set up.")
+func _unset() -> GSResult:
+	return GSResult.fail(GSError.CODE_STATE, "Spectating is not set up.")
 
 
-func watch(key: String, target: String) -> DotResult:
+func watch(key: String, target: String) -> GSResult:
 	return manager.watch(key, target) if manager != null else _unset()
 
 
@@ -227,28 +227,28 @@ func camera_for(key: String) -> Transform3D:
 	if not is_spectating(key):
 		return Transform3D.IDENTITY
 	var view := manager.view(key)
-	if view.mode == DotSpectatorView.Mode.FIXED and fixed_index_fn.is_valid():
+	if view.mode == GSSpectatorView.Mode.FIXED and fixed_index_fn.is_valid():
 		view.fixed_index = int(fixed_index_fn.call(key))
 	return manager.camera_of(key)
 
 
-func next_target(key: String) -> DotResult:
+func next_target(key: String) -> GSResult:
 	return manager.next_target(key) if manager != null else _unset()
 
 
-func previous_target(key: String) -> DotResult:
+func previous_target(key: String) -> GSResult:
 	return manager.previous_target(key) if manager != null else _unset()
 
 
 ## Next or previous target (direction 1 or -1), or the other camera (0), asked of the
 ## authority. A mirror is told, not asked.
-func step(key: String, direction: int) -> DotResult:
+func step(key: String, direction: int) -> GSResult:
 	if manager == null:
 		return _unset()
 	if not authoritative:
-		return DotResult.fail(DotError.CODE_STATE, "A mirror is told, not asked.")
+		return GSResult.fail(GSError.CODE_STATE, "A mirror is told, not asked.")
 	if not manager.is_spectating(key):
-		return DotResult.fail(DotError.CODE_STATE, "You are playing, not watching.")
+		return GSResult.fail(GSError.CODE_STATE, "You are playing, not watching.")
 	if direction == 0:
 		return cycle_mode(key)
 	_stepping = true
@@ -258,34 +258,34 @@ func step(key: String, direction: int) -> DotResult:
 
 
 ## First person, chase, then roaming when the policy allows it; a refusal says why.
-func cycle_mode(key: String) -> DotResult:
+func cycle_mode(key: String) -> GSResult:
 	if manager == null:
 		return _unset()
 	var view := manager.view(key)
-	if not view.follows_target() or view.mode == DotSpectatorView.Mode.FREEZE_CAM:
-		return DotResult.fail(DotError.CODE_STATE, "There is nobody in front of this camera.")
-	var wanted := DotSpectatorView.Mode.CHASE
-	if view.mode == DotSpectatorView.Mode.CHASE:
-		wanted = DotSpectatorView.Mode.FIRST_PERSON
+	if not view.follows_target() or view.mode == GSSpectatorView.Mode.FREEZE_CAM:
+		return GSResult.fail(GSError.CODE_STATE, "There is nobody in front of this camera.")
+	var wanted := GSSpectatorView.Mode.CHASE
+	if view.mode == GSSpectatorView.Mode.CHASE:
+		wanted = GSSpectatorView.Mode.FIRST_PERSON
 	var res := manager.set_mode(key, wanted)
 	if res.ok and int(res.value) != wanted:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "This server only lets you watch through their eyes."
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "This server only lets you watch through their eyes."
 		)
 	return res
 
 
 ## The free-roam key. Refused with a line to show when roaming is off.
-func toggle_roam(key: String) -> DotResult:
+func toggle_roam(key: String) -> GSResult:
 	if manager == null:
 		return _unset()
 	if guard_roam:
 		if not authoritative:
-			return DotResult.fail(DotError.CODE_STATE, "A mirror is told, not asked.")
+			return GSResult.fail(GSError.CODE_STATE, "A mirror is told, not asked.")
 		if not manager.is_spectating(key):
-			return DotResult.fail(DotError.CODE_STATE, "You are playing, not watching.")
+			return GSResult.fail(GSError.CODE_STATE, "You are playing, not watching.")
 	if not manager.can_roam(key):
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Free roam is off on this server.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Free roam is off on this server.")
 	return manager.toggle_roam(key)
 
 
@@ -296,7 +296,7 @@ func can_roam(key: String) -> bool:
 
 
 func is_roaming(key: String) -> bool:
-	return is_spectating(key) and manager.view(key).mode == DotSpectatorView.Mode.ROAMING
+	return is_spectating(key) and manager.view(key).mode == GSSpectatorView.Mode.ROAMING
 
 
 ## Operator change of [code]force_camera[/code] (0 to 2), from the next decision on.
@@ -304,7 +304,7 @@ func set_force_camera(force_camera: int) -> void:
 	if manager == null or manager.rules == null:
 		return
 	manager.rules.force_camera = clampi(force_camera, 0, 2)
-	DotLog.info(_channel(), "the spectator policy changed", {
+	GSLog.info(_channel(), "the spectator policy changed", {
 		"force_camera": manager.rules.force_camera,
 	})
 
@@ -322,7 +322,7 @@ func apply_view(
 	if manager == null:
 		return
 	var view := manager.view(key)
-	view.mode = clampi(mode, 0, DotSpectatorView.Mode.size() - 1) as DotSpectatorView.Mode
+	view.mode = clampi(mode, 0, GSSpectatorView.Mode.size() - 1) as GSSpectatorView.Mode
 	view.target = target
 	view.killer = killer
 	view.death_position = death_at
@@ -336,18 +336,18 @@ func line_for(key: String) -> String:
 		return ""
 	var view := manager.view(key)
 	var who := _name_of(view.target)
-	var touch := DotPlatform.has_touch()
+	var touch := GSPlatform.has_touch()
 	var roam := "   %s: free camera" % roam_key if can_roam(key) and not touch else ""
 	match view.mode:
-		DotSpectatorView.Mode.DEATH_CAM:
+		GSSpectatorView.Mode.DEATH_CAM:
 			return "you are out"
-		DotSpectatorView.Mode.FREEZE_CAM:
+		GSSpectatorView.Mode.FREEZE_CAM:
 			return "shot by %s" % who
-		DotSpectatorView.Mode.FIXED:
+		GSSpectatorView.Mode.FIXED:
 			return "nobody left to watch%s" % roam
-		DotSpectatorView.Mode.ROAMING:
+		GSSpectatorView.Mode.ROAMING:
 			return "free camera" if touch else "free camera   %s back to players" % roam_key
-		DotSpectatorView.Mode.CHASE:
+		GSSpectatorView.Mode.CHASE:
 			if touch:
 				return "watching %s  (behind)   tap: next" % who
 			return "watching %s  (behind)   click: next   F5: their eyes%s" % [who, roam]
@@ -378,7 +378,7 @@ func _on_retargeted(key: String, _from: String, to: String, _reason: StringName)
 func _prefer_side(key: String, mode: int, target: String) -> void:
 	if not prefer_own_side or not authoritative or _stepping or _preferring or target == "":
 		return
-	if mode != DotSpectatorView.Mode.FIRST_PERSON and mode != DotSpectatorView.Mode.CHASE:
+	if mode != GSSpectatorView.Mode.FIRST_PERSON and mode != GSSpectatorView.Mode.CHASE:
 		return
 	var mine := _team_of(key)
 	if mine <= 0 or _team_of(target) == mine:

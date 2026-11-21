@@ -1,9 +1,9 @@
-class_name DotSpectatorFreeCam
+class_name GSSpectatorFreeCam
 extends RefCounted
 
-## The controls of a roaming camera, forwarding to GameSpice Camera's [DotCameraFreeLook].
+## The controls of a roaming camera, forwarding to GameSpice Camera's [GSCameraFreeLook].
 ##
-## The arithmetic moved there so a spectator's roam, a flythrough and a debug camera share it; this class keeps the spectator names and takes its speeds from [DotSpectatorRules].
+## The arithmetic moved there so a spectator's roam, a flythrough and a debug camera share it; this class keeps the spectator names and takes its speeds from [GSSpectatorRules].
 ##
 ## [b]Here and not in the manager because the manager computes a transform and reads no
 ## input[/b] ([code]docs/design.md[/code]). Every game has a different input sampler and
@@ -13,11 +13,11 @@ extends RefCounted
 ## the game feeds it numbers.
 ##
 ## Presentation only. A client drives it each frame while its view is
-## [constant DotSpectatorView.Mode.ROAMING] and puts [method transform] on its camera;
+## [constant GSSpectatorView.Mode.ROAMING] and puts [method transform] on its camera;
 ## the server does not need the pose, and the view's wire form carries the entry point.
 ##
 ## [codeblock]
-## var free := DotSpectatorFreeCam.new()
+## var free := GSSpectatorFreeCam.new()
 ## free.rules = manager.rules
 ## # on entering the roam
 ## free.seed_from(manager.camera_of(id))
@@ -27,13 +27,13 @@ extends RefCounted
 ## [/codeblock]
 
 ## Where the speeds come from. Optional: without it the defaults of a fresh rules object.
-var rules: DotSpectatorRules = null
+var rules: GSSpectatorRules = null
 
-## Short of 90 degrees; see [constant DotCameraFreeLook.MAX_PITCH].
-const MAX_PITCH := DotCameraFreeLook.MAX_PITCH
+## Short of 90 degrees; see [constant GSCameraFreeLook.MAX_PITCH].
+const MAX_PITCH := GSCameraFreeLook.MAX_PITCH
 
-var _look := DotCameraFreeLook.new()
-var _cfg := DotCameraConfig.new()
+var _look := GSCameraFreeLook.new()
+var _cfg := GSCameraConfig.new()
 
 var position: Vector3:
 	get: return _look.position
@@ -69,7 +69,7 @@ func transform() -> Transform3D:
 
 ## Fly for [param delta] seconds. [param move] is x right, y up (world up), z forward along the view; each in -1..1.
 func step(move: Vector3, fast: bool, slow: bool, delta: float) -> Transform3D:
-	var r := rules if rules != null else DotSpectatorRules.new()
+	var r := rules if rules != null else GSSpectatorRules.new()
 	_cfg.free_speed = r.roam_speed
 	_cfg.free_fast_scale = r.roam_fast_scale
 	_cfg.free_slow_scale = r.roam_slow_scale

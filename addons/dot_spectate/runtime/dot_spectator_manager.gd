@@ -1,10 +1,10 @@
-class_name DotSpectatorManager
+class_name GSSpectatorManager
 extends Node
 
 ## Who is watching whom, what they are allowed to watch, and where the camera is.
 ##
 ## [codeblock]
-## var spectate := DotSpectatorManager.new()
+## var spectate := GSSpectatorManager.new()
 ## spectate.participants_fn = roster.keys
 ## spectate.team_fn = match_node.team_of
 ## spectate.alive_fn = world.is_alive
@@ -27,7 +27,7 @@ extends Node
 ## [b]It does read the level, when asked to.[/b] With [member camera_world] set, the two
 ## modes whose camera is somewhere nobody stands (behind a target, above a body) are pulled
 ## in front of whatever is between them and their pivot, through GameSpice Core's
-## [DotCameraProbe]: one per viewer, so two viewers asked for in one frame do not ease each
+## [GSCameraProbe]: one per viewer, so two viewers asked for in one frame do not ease each
 ## other's cameras. Without it the death camera of somebody killed against a wall was a
 ## frame of that wall (the first play test, 2026-10-11).
 ##
@@ -44,11 +44,11 @@ signal retargeted(key: String, from: String, to: String, reason: StringName)
 ## A timed camera — the death cam, the freeze cam — ran out.
 signal timed_out(key: String, mode: int)
 
-@export var rules: DotSpectatorRules = null
+@export var rules: GSSpectatorRules = null
 
 @export var authoritative: bool = true
 
-## Cameras a map placed, for [constant DotSpectatorView.Mode.FIXED] and for the
+## Cameras a map placed, for [constant GSSpectatorView.Mode.FIXED] and for the
 ## "nobody may watch" policy, which has to put the camera somewhere.
 @export var fixed_cameras: Array[Transform3D] = []
 
@@ -70,7 +70,7 @@ var pose_fn: Callable = Callable()
 ## An extra rule about who may be watched. [code](viewer, target) -> bool[/code]
 var target_filter: Callable = Callable()
 
-var history: DotSpectatorHistory = null
+var history: GSSpectatorHistory = null
 
 ## The level a chase or death camera must stay out of. Null: transforms are returned as
 ## computed, through walls and all (a headless server, a 2D game).
@@ -99,13 +99,13 @@ var _tick: int = 0
 
 func _init() -> void:
 	if rules == null:
-		rules = DotSpectatorRules.new()
-	history = DotSpectatorHistory.new(rules.history_ticks)
+		rules = GSSpectatorRules.new()
+	history = GSSpectatorHistory.new(rules.history_ticks)
 
 
-func setup() -> DotResult:
+func setup() -> GSResult:
 	if rules == null:
-		rules = DotSpectatorRules.new()
+		rules = GSSpectatorRules.new()
 	var res := rules.validate()
 	if not res.ok:
 		return res.wrap("spectator rules")
@@ -114,21 +114,21 @@ func setup() -> DotResult:
 	# thrown away and silently shows the oldest one it still has — which looks like a
 	# camera that lags, not like a setting that is wrong.
 	history.set_capacity(maxi(rules.history_ticks, rules.delay_ticks + 2))
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 # --- Views -------------------------------------------------------------------
 
-func view(key: String) -> DotSpectatorView:
-	var v: DotSpectatorView = _views.get(key, null)
+func view(key: String) -> GSSpectatorView:
+	var v: GSSpectatorView = _views.get(key, null)
 	if v == null:
-		v = DotSpectatorView.new(key)
+		v = GSSpectatorView.new(key)
 		_views[key] = v
 	return v
 
 
 func is_spectating(key: String) -> bool:
-	var v: DotSpectatorView = _views.get(key, null)
+	var v: GSSpectatorView = _views.get(key, null)
 	return v != null and v.is_watching()
 
 
@@ -137,7 +137,7 @@ func viewers() -> PackedStringArray:
 	var ids: Array = _views.keys()
 	ids.sort()
 	for id: Variant in ids:
-		if (_views[id] as DotSpectatorView).is_watching():
+		if (_views[id] as GSSpectatorView).is_watching():
 			out.append(str(id))
 	return out
 
@@ -149,39 +149,39 @@ func forget(key: String) -> void:
 
 
 ## Whether a viewer is allowed to watch anybody at all, and why not when they are not.
-func may_spectate(key: String) -> DotResult:
+func may_spectate(key: String) -> GSResult:
 	if rules.forbids_everything():
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "This server does not allow spectating."
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "This server does not allow spectating."
 		)
 
 	var alive := bool(alive_fn.call(key)) if alive_fn.is_valid() else false
 	if alive and not rules.allow_while_alive:
-		return DotResult.fail(
-			DotError.CODE_STATE, "A living player is playing, not watching."
+		return GSResult.fail(
+			GSError.CODE_STATE, "A living player is playing, not watching."
 		)
 	if not alive and not rules.allow_while_dead:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "Dead players may not watch on this server."
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "Dead players may not watch on this server."
 		)
 
 	var team := int(team_fn.call(key)) if team_fn.is_valid() else 0
 	if team <= 0 and not rules.allow_unassigned:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "Join a side before watching."
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "Join a side before watching."
 		)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Whether one viewer may watch one target, and why not when they may not.
 ##
 ## Public because a client draws the cycle list from it, and a client that guesses the
 ## rule shows a name the server will refuse.
-func may_watch(key: String, target: String) -> DotResult:
+func may_watch(key: String, target: String) -> GSResult:
 	if target == key:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "Nobody watches themselves."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "Nobody watches themselves."
 		)
 
 	var allowed := may_spectate(key)
@@ -189,40 +189,40 @@ func may_watch(key: String, target: String) -> DotResult:
 		return allowed
 
 	if not _exists(target):
-		return DotResult.fail(
-			DotError.CODE_INVALID, "There is nobody called '%s'." % target
+		return GSResult.fail(
+			GSError.CODE_INVALID, "There is nobody called '%s'." % target
 		)
 
 	if not rules.cycle_includes_dead and alive_fn.is_valid() \
 			and not bool(alive_fn.call(target)):
-		return DotResult.fail(
-			DotError.CODE_STATE, "%s is dead." % target
+		return GSResult.fail(
+			GSError.CODE_STATE, "%s is dead." % target
 		)
 
 	if rules.force_camera == 1 and team_fn.is_valid():
 		var mine := int(team_fn.call(key))
 		var theirs := int(team_fn.call(target))
 		if mine > 0 and mine != theirs:
-			return DotResult.fail(
-				DotError.CODE_FORBIDDEN,
+			return GSResult.fail(
+				GSError.CODE_FORBIDDEN,
 				"This server only lets you watch your own side."
 			)
 
 	if target_filter.is_valid() and not bool(target_filter.call(key, target)):
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "%s may not be watched." % target
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "%s may not be watched." % target
 		)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Point a viewer at somebody.
 func watch(
-	key: String, target: String, mode: int = DotSpectatorView.Mode.FIRST_PERSON
-) -> DotResult:
+	key: String, target: String, mode: int = GSSpectatorView.Mode.FIRST_PERSON
+) -> GSResult:
 	if not authoritative:
-		return DotResult.fail(
-			DotError.CODE_STATE, "A mirroring spectator manager is told, not asked."
+		return GSResult.fail(
+			GSError.CODE_STATE, "A mirroring spectator manager is told, not asked."
 		)
 
 	var allowed := may_watch(key, target)
@@ -231,19 +231,19 @@ func watch(
 
 	var wanted := _permitted_mode(mode)
 	var v := view(key)
-	v.mode = wanted as DotSpectatorView.Mode
+	v.mode = wanted as GSSpectatorView.Mode
 	v.target = target
 	v.until_tick = -1
 	view_changed.emit(key, int(v.mode), target)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Change the camera without changing who is being watched.
-func set_mode(key: String, mode: int) -> DotResult:
+func set_mode(key: String, mode: int) -> GSResult:
 	var v := view(key)
-	if mode == DotSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "Roaming is not allowed on this server."
+	if mode == GSSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "Roaming is not allowed on this server."
 		)
 	var allowed := may_spectate(key)
 	if not allowed.ok:
@@ -253,16 +253,16 @@ func set_mode(key: String, mode: int) -> DotResult:
 	if wanted != mode:
 		# Said out loud rather than silently corrected: a player who pressed a key and
 		# got a different camera with no explanation reports it as a broken control.
-		DotLog.debug(
+		GSLog.debug(
 			"spectate",
 			"%s asked for %s and the server's policy gives %s."
 				% [
 					key,
-					DotSpectatorView.Mode.keys()[mode],
-					DotSpectatorView.Mode.keys()[wanted],
+					GSSpectatorView.Mode.keys()[mode],
+					GSSpectatorView.Mode.keys()[wanted],
 				]
 		)
-	if wanted == DotSpectatorView.Mode.ROAMING and v.mode != DotSpectatorView.Mode.ROAMING:
+	if wanted == GSSpectatorView.Mode.ROAMING and v.mode != GSSpectatorView.Mode.ROAMING:
 		# Start the free camera where the last one was, not at the origin: the first frame
 		# of a roam that jumps across the map reads as a crash, and the spectator has to
 		# find their way back to the action.
@@ -270,26 +270,26 @@ func set_mode(key: String, mode: int) -> DotResult:
 		if from != Transform3D.IDENTITY:
 			v.free_position = from.origin
 			v.free_basis = from.basis.orthonormalized()
-	v.mode = wanted as DotSpectatorView.Mode
+	v.mode = wanted as GSSpectatorView.Mode
 	v.until_tick = -1
 	if not v.follows_target():
 		v.target = ""
 	view_changed.emit(key, int(v.mode), v.target)
-	return DotResult.success(wanted)
+	return GSResult.success(wanted)
 
 
 ## What the policy actually permits, given what was asked for.
 func _permitted_mode(mode: int) -> int:
 	if rules.forbids_everything():
-		return DotSpectatorView.Mode.FIXED
+		return GSSpectatorView.Mode.FIXED
 	if rules.forces_first_person():
 		# The genre's rule: "own team only" also means first person, because a chase
 		# camera behind a team-mate sees round corners that team-mate cannot.
-		if mode == DotSpectatorView.Mode.CHASE \
-				or mode == DotSpectatorView.Mode.ROAMING:
-			return DotSpectatorView.Mode.FIRST_PERSON
-	if mode == DotSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
-		return DotSpectatorView.Mode.FIRST_PERSON
+		if mode == GSSpectatorView.Mode.CHASE \
+				or mode == GSSpectatorView.Mode.ROAMING:
+			return GSSpectatorView.Mode.FIRST_PERSON
+	if mode == GSSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
+		return GSSpectatorView.Mode.FIRST_PERSON
 	return mode
 
 
@@ -304,24 +304,24 @@ func can_roam(key: String) -> bool:
 ## One key rather than two because a spectator who is roaming and wants to stop wants
 ## "back to the players", and a key that only enters would leave them to find the
 ## cycle key. Returns the mode the viewer ended in.
-func toggle_roam(key: String) -> DotResult:
+func toggle_roam(key: String) -> GSResult:
 	var v := view(key)
-	if v.mode != DotSpectatorView.Mode.ROAMING:
-		return set_mode(key, DotSpectatorView.Mode.ROAMING)
+	if v.mode != GSSpectatorView.Mode.ROAMING:
+		return set_mode(key, GSSpectatorView.Mode.ROAMING)
 	var back := next_target(key)
 	if back.ok:
-		return DotResult.success(int(view(key).mode))
+		return GSResult.success(int(view(key).mode))
 	# Nobody to go back to (everyone left, or the policy shows nothing): the fixed camera
 	# rather than staying out in the level.
-	return set_mode(key, DotSpectatorView.Mode.FIXED)
+	return set_mode(key, GSSpectatorView.Mode.FIXED)
 
 
 ## Stop watching. What a game calls when somebody respawns.
 func stop(key: String) -> void:
-	var v: DotSpectatorView = _views.get(key, null)
+	var v: GSSpectatorView = _views.get(key, null)
 	if v == null:
 		return
-	v.mode = DotSpectatorView.Mode.NONE
+	v.mode = GSSpectatorView.Mode.NONE
 	v.target = ""
 	v.until_tick = -1
 	v.killer = ""
@@ -348,19 +348,19 @@ func targets_for(key: String) -> PackedStringArray:
 	return out
 
 
-func next_target(key: String) -> DotResult:
+func next_target(key: String) -> GSResult:
 	return _cycle(key, 1)
 
 
-func previous_target(key: String) -> DotResult:
+func previous_target(key: String) -> GSResult:
 	return _cycle(key, -1)
 
 
-func _cycle(key: String, step: int) -> DotResult:
+func _cycle(key: String, step: int) -> GSResult:
 	var list := targets_for(key)
 	if list.is_empty():
-		return DotResult.fail(
-			DotError.CODE_STATE, "There is nobody to watch."
+		return GSResult.fail(
+			GSError.CODE_STATE, "There is nobody to watch."
 		)
 	var v := view(key)
 	var at := -1
@@ -371,7 +371,7 @@ func _cycle(key: String, step: int) -> DotResult:
 	var next := 0 if at < 0 else posmod(at + step, list.size())
 	return watch(
 		key, list[next],
-		v.mode if v.follows_target() else DotSpectatorView.Mode.FIRST_PERSON
+		v.mode if v.follows_target() else GSSpectatorView.Mode.FIRST_PERSON
 	)
 
 
@@ -398,19 +398,19 @@ func on_death(
 		# A mirror is TOLD its view: [method apply_wire], which carries the death
 		# position. The place and the killer are kept, since they are true either way.
 		push_error(
-			"DotSpectatorManager.on_death on a mirror: the chain is the server's. "
+			"GSSpectatorManager.on_death on a mirror: the chain is the server's. "
 			+ "Send the view with to_wire/apply_wire, or make this manager authoritative."
 		)
 		return
 
 	if rules.forbids_everything():
-		v.mode = DotSpectatorView.Mode.FIXED
+		v.mode = GSSpectatorView.Mode.FIXED
 		v.until_tick = -1
 		view_changed.emit(key, int(v.mode), "")
 		return
 
 	if rules.death_cam_ticks > 0:
-		v.mode = DotSpectatorView.Mode.DEATH_CAM
+		v.mode = GSSpectatorView.Mode.DEATH_CAM
 		v.target = ""
 		v.until_tick = at + rules.death_cam_ticks
 		view_changed.emit(key, int(v.mode), "")
@@ -425,9 +425,9 @@ func on_death(
 ## which every restrictive policy forbids, and the whole point of this camera is that
 ## you see them. It is a fixed frame for a fixed time, chosen by the server, and it
 ## hands over on its own — which is why [method advance] leaves timed cameras alone.
-func _after_death_cam(v: DotSpectatorView, at: int) -> void:
+func _after_death_cam(v: GSSpectatorView, at: int) -> void:
 	if rules.freeze_cam_ticks > 0 and v.killer != "" and _exists(v.killer):
-		v.mode = DotSpectatorView.Mode.FREEZE_CAM
+		v.mode = GSSpectatorView.Mode.FREEZE_CAM
 		v.target = v.killer
 		v.until_tick = at + rules.freeze_cam_ticks
 		view_changed.emit(v.key, int(v.mode), v.target)
@@ -436,15 +436,15 @@ func _after_death_cam(v: DotSpectatorView, at: int) -> void:
 
 
 ## The end of the chain: find somebody to watch, or sit still.
-func _hand_over(v: DotSpectatorView) -> void:
+func _hand_over(v: GSSpectatorView) -> void:
 	v.until_tick = -1
 	var list := targets_for(v.key)
 	if list.is_empty():
-		v.mode = DotSpectatorView.Mode.FIXED
+		v.mode = GSSpectatorView.Mode.FIXED
 		v.target = ""
 		view_changed.emit(v.key, int(v.mode), "")
 		return
-	v.mode = _permitted_mode(DotSpectatorView.Mode.FIRST_PERSON) as DotSpectatorView.Mode
+	v.mode = _permitted_mode(GSSpectatorView.Mode.FIRST_PERSON) as GSSpectatorView.Mode
 	v.target = list[0]
 	view_changed.emit(v.key, int(v.mode), v.target)
 
@@ -464,17 +464,17 @@ func on_leave(key: String) -> void:
 	if not rules.auto_retarget:
 		return
 	for id: Variant in _views.keys():
-		var v: DotSpectatorView = _views[id]
+		var v: GSSpectatorView = _views[id]
 		if v.target != key:
 			continue
 		_retarget(v, &"left")
 
 
-func _retarget(v: DotSpectatorView, reason: StringName) -> void:
+func _retarget(v: GSSpectatorView, reason: StringName) -> void:
 	var from := v.target
 	var list := targets_for(v.key)
 	if list.is_empty():
-		v.mode = DotSpectatorView.Mode.FIXED
+		v.mode = GSSpectatorView.Mode.FIXED
 		v.target = ""
 		retargeted.emit(v.key, from, "", reason)
 		return
@@ -482,8 +482,8 @@ func _retarget(v: DotSpectatorView, reason: StringName) -> void:
 	v.until_tick = -1
 	if not v.follows_target():
 		v.mode = _permitted_mode(
-			DotSpectatorView.Mode.FIRST_PERSON
-		) as DotSpectatorView.Mode
+			GSSpectatorView.Mode.FIRST_PERSON
+		) as GSSpectatorView.Mode
 	retargeted.emit(v.key, from, v.target, reason)
 
 
@@ -508,13 +508,13 @@ func advance(tick: int) -> void:
 		return
 
 	for id: Variant in _views.keys():
-		var v: DotSpectatorView = _views[id]
+		var v: GSSpectatorView = _views[id]
 		if not v.is_watching():
 			continue
 
 		if v.is_timed() and tick >= v.until_tick:
 			var was := v.mode
-			if was == DotSpectatorView.Mode.DEATH_CAM:
+			if was == GSSpectatorView.Mode.DEATH_CAM:
 				_after_death_cam(v, tick)
 			else:
 				_hand_over(v)
@@ -533,7 +533,7 @@ func advance(tick: int) -> void:
 			# ever saw who shot them, and every check about the camera's *mode* still
 			# passed because the mode was right and only the target had moved.
 			continue
-		if v.mode == DotSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
+		if v.mode == GSSpectatorView.Mode.ROAMING and not rules.roaming_permitted():
 			# An operator turned roaming off (or restricted the camera) while somebody was
 			# out in the level; they go back onto a player rather than keep a camera the
 			# server no longer allows.
@@ -565,20 +565,20 @@ func _poses() -> Dictionary:
 ## is the only arrangement that works for a 3D camera, a 2D one and a replay viewer at
 ## the same time.
 func camera_of(key: String) -> Transform3D:
-	var v: DotSpectatorView = _views.get(key, null)
+	var v: GSSpectatorView = _views.get(key, null)
 	if v == null or not v.is_watching():
 		return Transform3D.IDENTITY
 
 	match v.mode:
-		DotSpectatorView.Mode.ROAMING:
+		GSSpectatorView.Mode.ROAMING:
 			return Transform3D(v.free_basis, v.free_position)
 
-		DotSpectatorView.Mode.FIXED:
+		GSSpectatorView.Mode.FIXED:
 			if fixed_cameras.is_empty():
 				return Transform3D.IDENTITY
 			return fixed_cameras[posmod(v.fixed_index, fixed_cameras.size())]
 
-		DotSpectatorView.Mode.DEATH_CAM:
+		GSSpectatorView.Mode.DEATH_CAM:
 			# Fixed on where they fell, looking at whoever did it. A death camera that
 			# follows a corpse goes into the floor with it.
 			var look := v.death_position + Vector3.UP * 2.0
@@ -602,13 +602,13 @@ func camera_of(key: String) -> Transform3D:
 				return _looking_from(back, v.death_position + Vector3.UP * 0.5)
 			return _looking_from(look, at)
 
-		DotSpectatorView.Mode.FIRST_PERSON, DotSpectatorView.Mode.FREEZE_CAM:
+		GSSpectatorView.Mode.FIRST_PERSON, GSSpectatorView.Mode.FREEZE_CAM:
 			var got := _pose_of(v.target)
 			if not got[1]:
 				return Transform3D.IDENTITY
 			return got[0] as Transform3D
 
-		DotSpectatorView.Mode.CHASE:
+		GSSpectatorView.Mode.CHASE:
 			var chase := _pose_of(v.target)
 			if not chase[1]:
 				return Transform3D.IDENTITY
@@ -644,9 +644,9 @@ func _killer_hidden(key: String, death: Vector3, from: Vector3, killer: Vector3)
 func _clear_of_level(key: String, pivot: Vector3, wanted: Vector3) -> Vector3:
 	if camera_world == null:
 		return wanted
-	var probe: DotCameraProbe = _probes.get(key, null)
+	var probe: GSCameraProbe = _probes.get(key, null)
 	if probe == null:
-		probe = DotCameraProbe.new(camera_world, camera_mask)
+		probe = GSCameraProbe.new(camera_world, camera_mask)
 		_probes[key] = probe
 	probe.world = camera_world
 	probe.collision_mask = camera_mask
@@ -686,15 +686,15 @@ static func _looking_from(from: Vector3, at: Vector3) -> Transform3D:
 
 ## Move a roaming camera. The game feeds this from its own input sampler, because what
 ## a free camera's controls are is a game's decision and not this addon's.
-func move_free(key: String, position: Vector3, basis: Basis) -> DotResult:
+func move_free(key: String, position: Vector3, basis: Basis) -> GSResult:
 	var v := view(key)
-	if v.mode != DotSpectatorView.Mode.ROAMING:
-		return DotResult.fail(
-			DotError.CODE_STATE, "%s is not roaming." % key
+	if v.mode != GSSpectatorView.Mode.ROAMING:
+		return GSResult.fail(
+			GSError.CODE_STATE, "%s is not roaming." % key
 		)
 	v.free_position = position
 	v.free_basis = basis
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func _exists(key: String) -> bool:
@@ -706,7 +706,7 @@ func _exists(key: String) -> bool:
 # --- The wire --------------------------------------------------------------------
 
 func to_wire(key: String) -> Dictionary:
-	var v: DotSpectatorView = _views.get(key, null)
+	var v: GSSpectatorView = _views.get(key, null)
 	return {"k": key, "v": v.to_wire() if v != null else {}}
 
 
@@ -734,7 +734,7 @@ func describe() -> Dictionary:
 func describe_lines() -> PackedStringArray:
 	var out := PackedStringArray()
 	out.append(
-		"DotSpectatorManager %s tick=%d force_camera=%d delay=%d"
+		"GSSpectatorManager %s tick=%d force_camera=%d delay=%d"
 			% [
 				"authoritative" if authoritative else "mirroring",
 				_tick,
@@ -743,12 +743,12 @@ func describe_lines() -> PackedStringArray:
 			]
 	)
 	for key in viewers():
-		var v: DotSpectatorView = _views[key]
+		var v: GSSpectatorView = _views[key]
 		out.append(
 			"  %-16s %-13s %s%s"
 				% [
 					key,
-					DotSpectatorView.Mode.keys()[v.mode],
+					GSSpectatorView.Mode.keys()[v.mode],
 					v.target if v.target != "" else "-",
 					(" until %d" % v.until_tick) if v.is_timed() else "",
 				]

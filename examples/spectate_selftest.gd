@@ -12,7 +12,7 @@ extends "res://examples/spectate_selftest_base.gd"
 ## godot --headless --path . res://examples/spectate_selftest.tscn
 ## [/codeblock]
 ##
-## [b]One engine error on every green run, on purpose:[/b] "DotSpectatorManager.on_death on
+## [b]One engine error on every green run, on purpose:[/b] "GSSpectatorManager.on_death on
 ## a mirror". The last section asserts that a mirror REFUSES to start the death chain, and
 ## the refusal is a [code]push_error[/code] because it is a wiring mistake.
 
@@ -21,7 +21,7 @@ const CHECKS := 137
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	await _run()
 
 
@@ -74,13 +74,13 @@ func _test_cameras() -> void:
 	m.rules.allow_roaming = true
 	var _s := m.setup()
 
-	var _w := m.watch("ada", "bob", DotSpectatorView.Mode.FIRST_PERSON)
+	var _w := m.watch("ada", "bob", GSSpectatorView.Mode.FIRST_PERSON)
 	_check(
 		m.camera_of("ada").origin.is_equal_approx(Vector3(10, 2, 0)),
 		"first person is the target's eye transform"
 	)
 
-	var _c := m.watch("ada", "bob", DotSpectatorView.Mode.CHASE)
+	var _c := m.watch("ada", "bob", GSSpectatorView.Mode.CHASE)
 	var chase := m.camera_of("ada")
 	_check(
 		chase.origin.distance_to(Vector3(10, 2, 0)) > 1.0,
@@ -97,8 +97,8 @@ func _test_cameras() -> void:
 		"and the 2D form is the same camera on the XZ plane"
 	)
 
-	var _r := m.set_mode("ada", DotSpectatorView.Mode.ROAMING)
-	_check(m.view("ada").mode == DotSpectatorView.Mode.ROAMING, "roaming is allowed here")
+	var _r := m.set_mode("ada", GSSpectatorView.Mode.ROAMING)
+	_check(m.view("ada").mode == GSSpectatorView.Mode.ROAMING, "roaming is allowed here")
 	var _mv := m.move_free("ada", Vector3(1, 2, 3), Basis.IDENTITY)
 	_check(
 		m.camera_of("ada").origin.is_equal_approx(Vector3(1, 2, 3)),
@@ -107,11 +107,11 @@ func _test_cameras() -> void:
 	)
 
 	m.rules.allow_roaming = false
-	var refused := m.set_mode("ada", DotSpectatorView.Mode.ROAMING)
+	var refused := m.set_mode("ada", GSSpectatorView.Mode.ROAMING)
 	_check(not refused.ok, "and a server that forbids roaming refuses it")
 
 	m.fixed_cameras = [Transform3D(Basis.IDENTITY, Vector3(0, 20, 0))]
-	var _f := m.set_mode("ada", DotSpectatorView.Mode.FIXED)
+	var _f := m.set_mode("ada", GSSpectatorView.Mode.FIXED)
 	_check(
 		m.camera_of("ada").origin.is_equal_approx(Vector3(0, 20, 0)),
 		"a fixed camera is one the map placed"
@@ -146,21 +146,21 @@ func _test_cameras_in_a_level() -> void:
 	await get_tree().physics_frame
 	var space := get_viewport().world_3d.direct_space_state
 
-	var _c := m.watch("ada", "bob", DotSpectatorView.Mode.CHASE)
+	var _c := m.watch("ada", "bob", GSSpectatorView.Mode.CHASE)
 	var through := m.camera_of("ada").origin
 	_check(through.z > 2.0, "armed: with no level the chase camera is behind the wall (z %.2f)" % through.z)
 
 	m.camera_world = get_viewport().world_3d
 	var chase := m.camera_of("ada").origin
-	_check(chase.z < 2.0 - 0.15 and not DotCameraProbe.is_inside(space, chase, 0.15, 1), "with one it is in front of the wall, clear of it (z %.2f)" % chase.z)
+	_check(chase.z < 2.0 - 0.15 and not GSCameraProbe.is_inside(space, chase, 0.15, 1), "with one it is in front of the wall, clear of it (z %.2f)" % chase.z)
 
 	m.on_death("cy", Vector3(30, 0, 0), "bob", 0)
 	m.camera_world = null
 	var raw := m.camera_of("cy").origin
-	_check(DotCameraProbe.is_inside(space, raw, 0.15, 1), "armed: with no level the death camera is inside the roof (y %.2f)" % raw.y)
+	_check(GSCameraProbe.is_inside(space, raw, 0.15, 1), "armed: with no level the death camera is inside the roof (y %.2f)" % raw.y)
 	m.camera_world = get_viewport().world_3d
 	var death := m.camera_of("cy")
-	_check(death.origin.y < 1.6 and not DotCameraProbe.is_inside(space, death.origin, 0.15, 1), "with one it is under the roof, clear of it (y %.2f)" % death.origin.y)
+	_check(death.origin.y < 1.6 and not GSCameraProbe.is_inside(space, death.origin, 0.15, 1), "with one it is under the roof, clear of it (y %.2f)" % death.origin.y)
 	_check((-death.basis.z).dot((Vector3(10, 2, 0) - death.origin).normalized()) > 0.99, "and still looking at the killer")
 
 	# Killed through a gap by somebody the wall now hides: looking at them would be a frame
@@ -173,7 +173,7 @@ func _test_cameras_in_a_level() -> void:
 	m.camera_world = get_viewport().world_3d
 	var back := m.camera_of("cy")
 	var to_body := (Vector3(10, 0.5, 4) - back.origin).normalized()
-	_check(back.origin.z > 4.5 and not DotCameraProbe.is_inside(space, back.origin, 0.15, 1),
+	_check(back.origin.z > 4.5 and not GSCameraProbe.is_inside(space, back.origin, 0.15, 1),
 		"with one, the killer behind the wall, it stands back from the body on the open side (z %.2f)" % back.origin.z)
 	_check((-back.basis.z).dot(to_body) > 0.99 and space.intersect_ray(PhysicsRayQueryParameters3D.create(back.origin, Vector3(10, 0.5, 4), 1)).is_empty(),
 		"and looks at the body, with nothing in the way")
@@ -224,7 +224,7 @@ func _test_delay_and_wire() -> void:
 	)
 
 	# The mirror.
-	var mirror := DotSpectatorManager.new()
+	var mirror := GSSpectatorManager.new()
 	mirror.authoritative = false
 	add_child(mirror)
 	var _ms := mirror.setup()
@@ -295,7 +295,7 @@ func _test_delay_and_wire() -> void:
 	delayed.authoritative = false
 	delayed.rules.delay_ticks = 10
 	var _ds := delayed.setup()
-	delayed.apply_wire({"k": "ada", "v": {"m": int(DotSpectatorView.Mode.FIRST_PERSON), "t": "bob"}})
+	delayed.apply_wire({"k": "ada", "v": {"m": int(GSSpectatorView.Mode.FIRST_PERSON), "t": "bob"}})
 	for t in range(0, 30):
 		_poses["bob"] = Transform3D(Basis.IDENTITY, Vector3(float(t), 0, 0))
 		delayed.advance(t)
@@ -318,7 +318,7 @@ func _test_delay_and_wire() -> void:
 
 
 class _Host:
-	extends DotSpectatorHost
+	extends GSSpectatorHost
 	var teams: Dictionary = {}
 	var alive: Dictionary = {}
 	var tick: int = 0
@@ -340,7 +340,7 @@ class _Host:
 	func _current_tick() -> int:
 		return tick
 
-	func _tune_rules(r: DotSpectatorRules) -> DotSpectatorRules:
+	func _tune_rules(r: GSSpectatorRules) -> GSSpectatorRules:
 		r.cycle_includes_dead = false
 		return r
 
@@ -350,7 +350,7 @@ class _LoggingHost:
 	extends _Host
 	var watched: Array = []
 
-	func watch(key: String, target: String) -> DotResult:
+	func watch(key: String, target: String) -> GSResult:
 		watched.append(key)
 		return super.watch(key, target)
 
@@ -359,7 +359,7 @@ class _LoggingHost:
 		super.stop(key)
 
 
-## Stands in for a DotTouchButtons button, which takes a touch press in _input when it hits.
+## Stands in for a GSTouchButtons button, which takes a touch press in _input when it hits.
 class _TouchTaker extends Node:
 	func _input(event: InputEvent) -> void:
 		if event is InputEventScreenTouch and event.pressed:
@@ -391,7 +391,7 @@ func _test_host() -> void:
 	h.prefer_own_side = true
 	h.teams = {"a": 1, "b": 1, "c": 2}
 	h.alive = {"a": true, "b": true, "c": true}
-	_check(h.watch("a", "b").error.code == DotError.CODE_STATE, "a call before setup fails with CODE_STATE, not a null deref")
+	_check(h.watch("a", "b").error.code == GSError.CODE_STATE, "a call before setup fails with CODE_STATE, not a null deref")
 	_check(h.camera_for("a") == Transform3D.IDENTITY, "no camera before setup")
 	add_child(h)
 	_check(h.setup().ok, "setup succeeds")
@@ -405,10 +405,10 @@ func _test_host() -> void:
 	h.view_changed.connect(func(k: String) -> void: seen.append(k))
 	h.alive["a"] = false
 	h.death("a", Vector3.ZERO, "c")
-	_check(h.is_spectating("a") and h.mode_of("a") == int(DotSpectatorView.Mode.DEATH_CAM), "death starts the death cam from the host's tick")
+	_check(h.is_spectating("a") and h.mode_of("a") == int(GSSpectatorView.Mode.DEATH_CAM), "death starts the death cam from the host's tick")
 	h.tick = 10
 	h.advance_live()
-	_check(h.mode_of("a") == int(DotSpectatorView.Mode.FREEZE_CAM), "advance_live hands the death cam to the freeze cam")
+	_check(h.mode_of("a") == int(GSSpectatorView.Mode.FREEZE_CAM), "advance_live hands the death cam to the freeze cam")
 	h.tick = 30
 	h.advance_live()
 	_check(h.watching("a") == "b", "the chain ends on a team-mate: own side preferred over the first key")
@@ -431,37 +431,37 @@ func _test_host() -> void:
 	h.set_force_camera(9)
 	_check(h.manager.rules.force_camera == 2, "set_force_camera clamps")
 	h.authoritative = false
-	_check(h.step("a", 1).error.code == DotError.CODE_STATE, "a mirror host refuses step")
+	_check(h.step("a", 1).error.code == GSError.CODE_STATE, "a mirror host refuses step")
 	h.queue_free()
 
 
 ## Stepping and free roam: refused for a player, forbidden when off, and guard_roam's rules.
 func _host_roam(h: _Host) -> void:
 	var cycled := h.step("a", 0)
-	_check(cycled.ok or cycled.error.code == DotError.CODE_FORBIDDEN, "step 0 cycles the camera or says why not")
-	_check(h.step("zzz", 1).error.code == DotError.CODE_STATE, "step refuses a viewer who is playing")
+	_check(cycled.ok or cycled.error.code == GSError.CODE_FORBIDDEN, "step 0 cycles the camera or says why not")
+	_check(h.step("zzz", 1).error.code == GSError.CODE_STATE, "step refuses a viewer who is playing")
 	var roam := h.toggle_roam("a")
 	_check(roam.ok and h.is_roaming("a"), "toggle_roam enters free roam when allowed")
 	_check(h.line_for("a").contains("free camera"), "line_for names the roam camera")
-	var was_touch := DotPlatform.touch_override
-	DotPlatform.touch_override = 1
+	var was_touch := GSPlatform.touch_override
+	GSPlatform.touch_override = 1
 	var tl := h.line_for("a")
-	DotPlatform.touch_override = 0
+	GSPlatform.touch_override = 0
 	var dl := h.line_for("a")
-	DotPlatform.touch_override = was_touch
+	GSPlatform.touch_override = was_touch
 	_check(tl != "" and not tl.contains("click") and not tl.contains("F5") and not tl.contains(h.roam_key + ":"), "line_for on touch names no keys")
 	_check(dl.contains("free camera") and dl.contains(h.roam_key), "line_for on desktop keeps the key hints")
 	_check(h.line_for("zzz") == "", "line_for is empty for a player on any platform")
 	h.manager.rules.allow_roaming = false
-	_check(h.toggle_roam("a").error.code == DotError.CODE_FORBIDDEN, "roam refused with CODE_FORBIDDEN when off")
+	_check(h.toggle_roam("a").error.code == GSError.CODE_FORBIDDEN, "roam refused with CODE_FORBIDDEN when off")
 
 	h.manager.rules.allow_roaming = true
 	_check(not h.guard_roam and h.can_roam("zzz") == h.manager.can_roam("zzz"), "an unguarded host answers can_roam as the manager does")
 	h.guard_roam = true
-	_check(h.toggle_roam("zzz").error.code == DotError.CODE_STATE, "guard_roam refuses a playing viewer with CODE_STATE")
+	_check(h.toggle_roam("zzz").error.code == GSError.CODE_STATE, "guard_roam refuses a playing viewer with CODE_STATE")
 	_check(not h.can_roam("zzz") and h.can_roam("a"), "guard_roam: can_roam is false for a player, true for a spectator")
 	h.authoritative = false
-	_check(h.toggle_roam("a").error.code == DotError.CODE_STATE, "guard_roam refuses a mirror with CODE_STATE")
+	_check(h.toggle_roam("a").error.code == GSError.CODE_STATE, "guard_roam refuses a mirror with CODE_STATE")
 	h.authoritative = true
 	_check(h.toggle_roam("a").ok, "guard_roam lets a spectator on an authority roam")
 	h.guard_roam = false
@@ -479,8 +479,8 @@ func _host_taps(h: _Host) -> void:
 	var click := InputEventMouseButton.new()
 	click.pressed = true
 	click.button_index = MOUSE_BUTTON_LEFT
-	_check(DotSpectatorHost.is_next_press(tap) and DotSpectatorHost.is_next_press(click), "a touch and a left click both mean next")
-	_check(not DotSpectatorHost.is_next_press(emu), "the mouse a touch emulates is not a second press")
+	_check(GSSpectatorHost.is_next_press(tap) and GSSpectatorHost.is_next_press(click), "a touch and a left click both mean next")
+	_check(not GSSpectatorHost.is_next_press(emu), "the mouse a touch emulates is not a second press")
 	h.tap_key = "a"
 	var before := h.watching("a")
 	h._unhandled_input(tap)
@@ -494,8 +494,8 @@ func _host_taps(h: _Host) -> void:
 	get_viewport().push_input(tap)
 	_check(h.watching("a") != before, "the same touch with no button under it steps through the viewport")
 	h.tap_key = ""
-	var tp := DotPlatform.touch_override
-	DotPlatform.touch_override = 1
+	var tp := GSPlatform.touch_override
+	GSPlatform.touch_override = 1
 	var spectating_line := h.line_for("a")
-	DotPlatform.touch_override = tp
+	GSPlatform.touch_override = tp
 	_check(spectating_line.contains("tap: next") and not spectating_line.contains("click"), "line_for says tap: next on touch while watching")

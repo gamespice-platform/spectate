@@ -1,4 +1,4 @@
-class_name DotSpectatorHistory
+class_name GSSpectatorHistory
 extends RefCounted
 
 ## A bounded ring of where everybody was, so a camera can look at the past.

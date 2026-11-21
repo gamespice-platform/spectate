@@ -19,7 +19,7 @@ GameSpice Core is the only dependency.
 ## Use
 
 ```gdscript
-var spectate := DotSpectatorManager.new()
+var spectate := GSSpectatorManager.new()
 spectate.participants_fn = roster.keys        # () -> PackedStringArray
 spectate.team_fn = match_node.team_of         # (key) -> int
 spectate.alive_fn = world.is_alive            # (key) -> bool
@@ -35,12 +35,12 @@ spectate.advance(tick)                                   # once a tick
 camera.global_transform = spectate.camera_of(me)         # once a frame
 ```
 
-Or subclass `DotSpectatorHost`, which builds the manager and forwards the calls: override `_participants`, `_team_of`, `_is_alive`, `_pose_of` and `_current_tick`. A 2D game uses `camera_2d_of(me)`.
+Or subclass `GSSpectatorHost`, which builds the manager and forwards the calls: override `_participants`, `_team_of`, `_is_alive`, `_pose_of` and `_current_tick`. A 2D game uses `camera_2d_of(me)`.
 
 | Call | Does |
 | --- | --- |
 | `next_target(me)`, `previous_target(me)` | Cycle targets. |
-| `set_mode(me, DotSpectatorView.Mode.CHASE)` | Change camera. A mode the rules forbid becomes one they allow. |
+| `set_mode(me, GSSpectatorView.Mode.CHASE)` | Change camera. A mode the rules forbid becomes one they allow. |
 | `targets_for(me)`, `may_watch(me, them)` | Build a name list the server will accept. |
 | `target_filter` | Your own `(viewer, target) -> bool` rule. |
 | `to_wire(key)`, `apply_wire()` | Server sends each viewer their view; the client manager (`authoritative = false`) loads it. |
@@ -49,10 +49,10 @@ Modes: `FIRST_PERSON`, `CHASE`, `FIXED`, `ROAMING` (`move_free()`), `DEATH_CAM`,
 
 ## Settings
 
-Rules live in a `DotSpectatorRules` resource on the manager's `rules`, layered like every GameSpice config: inspector defaults, JSON file, environment, command line. Call `load_layered()` before `setup()`.
+Rules live in a `GSSpectatorRules` resource on the manager's `rules`, layered like every GameSpice config: inspector defaults, JSON file, environment, command line. Call `load_layered()` before `setup()`.
 
 ```gdscript
-var rules := DotSpectatorRules.new()
+var rules := GSSpectatorRules.new()
 rules.load_layered("user://spectate.json")
 spectate.rules = rules
 ```
