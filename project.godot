@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="dot-spectate"
+config/name="gs-spectate"
 config/description="Who is watching whom, what the server lets them watch, and where the camera is: seven observer modes, a force-camera policy, the death-cam chain, and a delay so a spectator is not a live intelligence feed."
 run/main_scene="res://examples/spectate_selftest.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
@@ -23,7 +23,7 @@ window/size/viewport_height=900
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dot_spectate/plugin.cfg")
+enabled=PackedStringArray("res://addons/gs_spectate/plugin.cfg")
 
 [importer_defaults]
 

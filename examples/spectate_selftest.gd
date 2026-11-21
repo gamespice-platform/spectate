@@ -1,6 +1,6 @@
 extends "res://examples/spectate_selftest_base.gd"
 
-## Exercises dot-spectate with no camera, no world and no transport.
+## Exercises gs-spectate with no camera, no world and no transport.
 ##
 ## Positions, teams and liveness are dictionaries — the seam a real game fills — so what
 ## is checked here is what this addon promises: that a server's force-camera policy is
@@ -26,7 +26,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	_line("dot-spectate self-test")
+	_line("gs-spectate self-test")
 	_line("(one engine error on purpose: \"on_death on a mirror\", which the last section asserts is refused)")
 	_line("")
 

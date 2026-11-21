@@ -6,13 +6,13 @@ extends EditorPlugin
 ## No autoloads: a server deciding who may watch whom and a client mirroring one view
 ## are two of these in one process.
 
-const _ICON := "res://addons/dot_spectate/icon_placeholder.svg"
+const _ICON := "res://addons/gs_spectate/icon_placeholder.svg"
 
 const _TYPES := [
 	[
 		"GSSpectatorManager",
 		"Node",
-		"res://addons/dot_spectate/runtime/dot_spectator_manager.gd",
+		"res://addons/gs_spectate/runtime/gs_spectator_manager.gd",
 	],
 ]
 

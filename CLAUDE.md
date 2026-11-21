@@ -4,7 +4,7 @@ Who is watching whom, what the server lets them watch, and where the camera is: 
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first.
 
-**The distributable is `addons/dot_spectate/`.** It requires [GameSpice Core](../dot-core) and [GameSpice Camera](../dot-camera) (`ln -s ../../dot-camera/addons/dot_camera addons/dot_camera`, gitignored; only `GSSpectatorFreeCam` names it, as a forwarder to `GSCameraFreeLook`; copy `addons/dot_camera` next to `addons/dot_core`). dot-team's `GSTeamSpectate` drives a `GSSpectatorManager` without naming it.
+**The distributable is `addons/gs_spectate/`.** It requires [GameSpice Core](../gs-core) and [GameSpice Camera](../gs-camera) (`ln -s ../../gs-camera/addons/gs_camera addons/gs_camera`, gitignored; only `GSSpectatorFreeCam` names it, as a forwarder to `GSCameraFreeLook`; copy `addons/gs_camera` next to `addons/gs_core`). gs-team's `GSTeamSpectate` drives a `GSSpectatorManager` without naming it.
 
 ## Read before
 
@@ -17,15 +17,15 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first.
 
 | Path | What |
 | --- | --- |
-| `core/dot_spectator_rules.gd` | `GSSpectatorRules`: every policy (`force_camera`, `delay_ticks`, `history_ticks`, chain timings); layered `GSConfig` |
-| `core/dot_spectator_view.gd` | `GSSpectatorView`: one viewer, a `Mode` and a target; its wire form carries the death position `"d"` |
-| `core/dot_spectator_history.gd` | `GSSpectatorHistory`: a bounded ring of where everybody was; `sample` returns `[Transform3D, found]` |
-| `runtime/dot_spectator_manager.gd` | `GSSpectatorManager`: the one node a game holds; `camera_of`, `camera_2d_of`, `on_death`, `on_leave`, `targets_for`, `move_free`, wire form |
-| `runtime/dot_spectator_host.gd` | `GSSpectatorHost`: the wrapper games repeat; subclass and override `_participants`, `_team_of`, `_is_alive`, `_pose_of`, `_current_tick`, `_tune_rules` |
-| `dot_spectate_api.gd` | the API level (4 since `GSSpectatorHost`) |
+| `core/gs_spectator_rules.gd` | `GSSpectatorRules`: every policy (`force_camera`, `delay_ticks`, `history_ticks`, chain timings); layered `GSConfig` |
+| `core/gs_spectator_view.gd` | `GSSpectatorView`: one viewer, a `Mode` and a target; its wire form carries the death position `"d"` |
+| `core/gs_spectator_history.gd` | `GSSpectatorHistory`: a bounded ring of where everybody was; `sample` returns `[Transform3D, found]` |
+| `runtime/gs_spectator_manager.gd` | `GSSpectatorManager`: the one node a game holds; `camera_of`, `camera_2d_of`, `on_death`, `on_leave`, `targets_for`, `move_free`, wire form |
+| `runtime/gs_spectator_host.gd` | `GSSpectatorHost`: the wrapper games repeat; subclass and override `_participants`, `_team_of`, `_is_alive`, `_pose_of`, `_current_tick`, `_tune_rules` |
+| `gs_spectate_api.gd` | the API level (4 since `GSSpectatorHost`) |
 | `examples/spectate_selftest.tscn` | the suite; its "stay out of the level" section is the only one with a level |
 
-Paths except `examples/` are in `addons/dot_spectate/`.
+Paths except `examples/` are in `addons/gs_spectate/`.
 
 ## Running and testing
 

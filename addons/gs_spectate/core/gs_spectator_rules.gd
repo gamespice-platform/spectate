@@ -97,7 +97,7 @@ signal rules_changed
 
 
 func env_prefix() -> String:
-	return "DOT_SPECTATE_"
+	return "GS_SPECTATE_"
 
 
 func cli_prefix() -> String:

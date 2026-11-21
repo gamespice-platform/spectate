@@ -10,7 +10,7 @@ A rule that is right in general and wrong in the one case that matters, and invi
 
 ## A bound nothing read
 
-The history ring is validated against the delay because dot-timer once shipped `max_replay_seconds` as a documented setting nothing read, which on a server is a player idling in a run for hours. See [bugs-found](../../../docs/bugs-found.md).
+The history ring is validated against the delay because gs-timer once shipped `max_replay_seconds` as a documented setting nothing read, which on a server is a player idling in a run for hours. See [bugs-found](../../../docs/bugs-found.md).
 
 ## Mirrors drew from the origin
 
