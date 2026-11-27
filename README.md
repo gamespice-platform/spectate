@@ -2,6 +2,8 @@
 
 Decides who a player may watch, which camera they get and where it goes, for when they die or have not joined a side. It gives you a `Transform3D` (or a 2D position and angle); your game puts its camera there.
 
+This GameSpice addon is MIT licensed and built with Claude Code. Run `examples/spectate_selftest.tscn` headless for its tests. It is in use: the games in [Zee's Games](https://zeesgames.com) are built on GameSpice addons and run on live servers, and their dead players are moved by this code. Bug reports go to the [issue tracker](https://github.com/gamespice-platform/spectate/issues).
+
 A spectator view is an easy way to cheat, so the server decides:
 
 - **Who may be watched.** `force_camera` is `0` for everybody, `1` for own team only (and first person only, since a chase camera sees round corners) or `2` for nobody (only the map's fixed cameras), matching the `mp_forcecamera` cvar.
@@ -79,8 +81,27 @@ Example: `GS_SPECTATE_FORCE_CAMERA=0 <your server> --spectate-delay-ticks=640`.
 
 Import the project once, then run `examples/spectate_selftest.tscn` headless with Godot.
 
-## Status and licence
+## Used by
 
-Part of the [**GameSpice**](https://gamespice.net) platform: a family of Godot addons. Written with Claude Code and maintained by `gamemann`. Every addon has headless tests, but little of this has been played by real users yet, so expect rough edges and please [open an issue](https://github.com/gamespice-platform/spectate/issues) when you hit one.
+All of these games from Zee's Games vendor this addon:
+
+- [Fatal Contact](https://zeesgames.com/fatal-contact)
+- [Airdrift](https://zeesgames.com/airdrift)
+- [Playlot](https://zeesgames.com/playlot)
+- [Hungario](https://zeesgames.com/hungario)
+- [Buses From Hell](https://zeesgames.com/buses-from-hell)
+- [Smash Copter](https://zeesgames.com/smash-copter)
+- [Zombie Zone](https://zeesgames.com/zombie-zone)
+- [Hide n Seek](https://zeesgames.com/hide-n-seek)
+- [Prop Hunt](https://zeesgames.com/prop-hunt)
+- [Murder Mystery](https://zeesgames.com/murder-mystery)
+- [Deathrun](https://zeesgames.com/deathrun)
+- [Wipeout](https://zeesgames.com/wipeout)
+- [Dangerous Delivery](https://zeesgames.com/dangerous-delivery)
+- [Look At Me](https://zeesgames.com/look-at-me)
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
+
+## Licence
 
 MIT licence, see [LICENSE](LICENSE). The only closed part of the [**GameSpice**](https://gamespice.net) platform is the web back end; you can use your own instead of GameSpice's.
