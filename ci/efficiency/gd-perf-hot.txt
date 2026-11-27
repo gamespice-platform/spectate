@@ -1,0 +1,15 @@
+# Runtime scripts checked by gs-ci scripts/check-gd-perf.py (tools/gd_perf_lint.py).
+# One fnmatch glob per line over tracked paths. Baseline: ci/efficiency/gd-perf.tsv.
+addons/gs_spectate/core/gs_spectator_history.gd
+addons/gs_spectate/core/gs_spectator_rules.gd
+addons/gs_spectate/core/gs_spectator_view.gd
+addons/gs_spectate/gs_spectate_api.gd
+addons/gs_spectate/runtime/gs_spectator_free_cam.gd
+addons/gs_spectate/runtime/gs_spectator_host.gd
+addons/gs_spectate/runtime/gs_spectator_manager.gd
+
+# Run once or on config change, not per tick:
+cold+: ^(from_.*|describe.*|specs|cvar_specs|_absorb_specs|set_cvar|follow_cvars|validate.*|presets|properties|standard_pair|restore|_restore_.*|to_config|parse_.*|_parse_.*|find_spot)$
+
+# Run per event or per player action (wire snapshots, a viewer's cycle list, HUD text, policy changes, status), not per tick:
+cold+: ^(describe.*|to_wire|apply_wire|viewers|targets_for|set_force_camera|line_for|move_free|watch|set_mode|toggle_roam|next_target|previous_target|_cycle|stop|forget|on_death|on_spawn|on_leave|_after_death_cam|_hand_over|_retarget|_permitted_mode)$

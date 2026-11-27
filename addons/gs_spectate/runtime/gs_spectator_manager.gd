@@ -95,6 +95,8 @@ var _probes: Dictionary = {}
 ## camera between two places for the whole of the death cam.
 var _death_framing: Dictionary = {}
 var _tick: int = 0
+## Whether the last [method _pose_of] found a pose (it returns a transform, not a pair).
+var _pose_found: bool = false
 
 
 func _init() -> void:
@@ -500,7 +502,7 @@ func advance(tick: int) -> void:
 	# server's, because a client that is sent live positions has them whatever its camera
 	# shows. A server that means the delay withholds those positions from a spectator.
 	if rules.delay_ticks > 0:
-		history.record(tick, _poses())
+		history.record_owned(tick, _poses())
 
 	if not authoritative:
 		# A mirror is told its view (see [method apply_wire]); the chain and the
@@ -518,7 +520,7 @@ func advance(tick: int) -> void:
 				_after_death_cam(v, tick)
 			else:
 				_hand_over(v)
-			timed_out.emit(v.key, int(was))
+			timed_out.emit(v.key, int(was))  # perf-lint: allow emit_in_loop one viewer's camera ran out, rare per tick
 			continue
 
 		if not rules.auto_retarget:
@@ -548,12 +550,13 @@ func advance(tick: int) -> void:
 		_retarget(v, &"unavailable")
 
 
+## This tick's poses, a fresh dictionary the history ring keeps (one per recorded tick is the ring).
 func _poses() -> Dictionary:
-	var out: Dictionary = {}
+	var out: Dictionary = {}  # perf-lint: allow alloc the ring's frame for this tick, kept by record_owned
 	if not pose_fn.is_valid() or not participants_fn.is_valid():
 		return out
-	for key in (participants_fn.call() as PackedStringArray):
-		out[key] = pose_fn.call(key) as Transform3D
+	for key in (participants_fn.call() as PackedStringArray):  # perf-lint: allow dynamic_call the game's participants hook
+		out[key] = pose_fn.call(key) as Transform3D  # perf-lint: allow dynamic_call the game's pose hook
 	return out
 
 
@@ -585,8 +588,8 @@ func camera_of(key: String) -> Transform3D:
 			var at := v.death_position
 			if v.killer != "":
 				var killer_pose := _pose_of(v.killer)
-				if killer_pose[1]:
-					at = (killer_pose[0] as Transform3D).origin
+				if _pose_found:
+					at = killer_pose.origin
 			var pivot := v.death_position + Vector3.UP * DEATH_PIVOT_HEIGHT
 			look = _clear_of_level(key, pivot, look)
 			if v.killer != "" and _killer_hidden(key, v.death_position, look, at):
@@ -604,15 +607,14 @@ func camera_of(key: String) -> Transform3D:
 
 		GSSpectatorView.Mode.FIRST_PERSON, GSSpectatorView.Mode.FREEZE_CAM:
 			var got := _pose_of(v.target)
-			if not got[1]:
+			if not _pose_found:
 				return Transform3D.IDENTITY
-			return got[0] as Transform3D
+			return got
 
 		GSSpectatorView.Mode.CHASE:
-			var chase := _pose_of(v.target)
-			if not chase[1]:
+			var pose := _pose_of(v.target)
+			if not _pose_found:
 				return Transform3D.IDENTITY
-			var pose := chase[0] as Transform3D
 			var back := pose.basis.z.normalized() * rules.chase_distance
 			var up := Vector3.UP * rules.chase_height
 			return Transform3D(pose.basis, _clear_of_level(key, pose.origin, pose.origin + back + up))
@@ -627,15 +629,16 @@ func camera_of(key: String) -> Transform3D:
 func _killer_hidden(key: String, death: Vector3, from: Vector3, killer: Vector3) -> bool:
 	if camera_world == null:
 		return false
-	var framed: Array = _death_framing.get(key, [])
-	if framed.size() == 2 and (framed[0] as Vector3).is_equal_approx(death):
-		return bool(framed[1])
+	if _death_framing.has(key):
+		var framed: Array = _death_framing[key]
+		if (framed[0] as Vector3).is_equal_approx(death):
+			return bool(framed[1])
 	var hidden := false
-	var space := camera_world.direct_space_state
+	var space := camera_world.direct_space_state  # perf-lint: allow singleton_lookup once per death, cached in _death_framing
 	if space != null and from.distance_squared_to(killer) > 0.01:
-		var ray := PhysicsRayQueryParameters3D.create(from, killer, camera_mask)
+		var ray := PhysicsRayQueryParameters3D.create(from, killer, camera_mask)  # perf-lint: allow alloc once per death, cached in _death_framing
 		hidden = not space.intersect_ray(ray).is_empty()
-	_death_framing[key] = [death, hidden]
+	_death_framing[key] = [death, hidden]  # perf-lint: allow alloc once per death, then the cached answer above
 	return hidden
 
 
@@ -660,15 +663,19 @@ func camera_2d_of(key: String) -> Array:
 	return [Vector2(t.origin.x, t.origin.z), atan2(forward.x, forward.z)]
 
 
-## A pose, through the delay if there is one. [code][Transform3D, found][/code].
-func _pose_of(key: String) -> Array:
+## A pose, through the delay if there is one; [member _pose_found] says whether there was one.
+func _pose_of(key: String) -> Transform3D:
+	_pose_found = false
 	if key == "":
-		return [Transform3D.IDENTITY, false]
+		return Transform3D.IDENTITY
 	if rules.delay_ticks > 0:
-		return history.sample(_tick, rules.delay_ticks, key)
+		var sampled := history.sample_pose(_tick, rules.delay_ticks, key)
+		_pose_found = history.found
+		return sampled
 	if not pose_fn.is_valid():
-		return [Transform3D.IDENTITY, false]
-	return [pose_fn.call(key) as Transform3D, true]
+		return Transform3D.IDENTITY
+	_pose_found = true
+	return pose_fn.call(key) as Transform3D  # perf-lint: allow dynamic_call the game's pose hook
 
 
 static func _looking_from(from: Vector3, at: Vector3) -> Transform3D:

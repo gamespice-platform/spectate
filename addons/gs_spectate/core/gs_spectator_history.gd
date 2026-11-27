@@ -15,8 +15,11 @@ extends RefCounted
 ## with no ceiling — GameSpice Timer's [code]max_replay_seconds[/code] was a documented
 ## setting that nothing read, which on a server is a player idling in a run for hours.
 
+## Whether the last [method sample_pose] found its key.
+var found: bool = false
+
 ## tick -> {key: Transform3D}
-var _frames: Dictionary = {}
+var _frames: Dictionary[int, Dictionary] = {}
 
 var _ticks: PackedInt32Array = PackedInt32Array()
 
@@ -47,10 +50,16 @@ func clear() -> void:
 
 ## Record where everybody is on one tick.
 func record(tick: int, poses: Dictionary) -> void:
+	record_owned(tick, poses.duplicate())  # perf-lint: allow alloc the caller keeps its dictionary; record_owned takes one over
+
+
+## [method record] for a dictionary the ring may keep as it is: the caller built it for
+## this tick and never touches it again, so nothing is copied.
+func record_owned(tick: int, poses: Dictionary) -> void:
 	if _frames.has(tick):
-		_frames[tick] = poses.duplicate()
+		_frames[tick] = poses
 		return
-	_frames[tick] = poses.duplicate()
+	_frames[tick] = poses
 	_ticks.append(tick)
 	_trim()
 
@@ -63,8 +72,16 @@ func record(tick: int, poses: Dictionary) -> void:
 ## looking down the X axis is the "sky in every direction" screenshot this family has
 ## already spent three days on.
 func sample(tick: int, delay: int, key: String) -> Array:
+	var pose := sample_pose(tick, delay, key)
+	return [pose, found]  # perf-lint: allow alloc the [pose, found] API shape; per-tick callers use sample_pose
+
+
+## [method sample] without the pair: the pose, or [constant Transform3D.IDENTITY] with
+## [member found] false. Allocates nothing, for a camera computed every frame.
+func sample_pose(tick: int, delay: int, key: String) -> Transform3D:
+	found = false
 	if _ticks.is_empty():
-		return [Transform3D.IDENTITY, false]
+		return Transform3D.IDENTITY
 
 	var want := tick - maxi(delay, 0)
 	var best := -1
@@ -76,10 +93,13 @@ func sample(tick: int, delay: int, key: String) -> Array:
 		# first `delay` ticks of a round. The oldest is the closest to the truth.
 		best = _oldest()
 
-	var frame: Dictionary = _frames.get(best, {})
+	if not _frames.has(best):
+		return Transform3D.IDENTITY
+	var frame: Dictionary = _frames[best]
 	if not frame.has(key):
-		return [Transform3D.IDENTITY, false]
-	return [frame[key] as Transform3D, true]
+		return Transform3D.IDENTITY
+	found = true
+	return frame[key] as Transform3D
 
 
 func _oldest() -> int:
@@ -94,11 +114,9 @@ func _trim() -> void:
 	while _ticks.size() > _capacity:
 		var oldest := _oldest()
 		_frames.erase(oldest)
-		var kept := PackedInt32Array()
-		for t in _ticks:
-			if t != oldest:
-				kept.append(t)
-		_ticks = kept
+		# Ticks are unique (record replaces a repeated one), so this drops exactly the
+		# one entry the old filtered copy dropped, in place.
+		_ticks.remove_at(_ticks.find(oldest))
 
 
 func describe() -> Dictionary:
